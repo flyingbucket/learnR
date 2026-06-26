@@ -7,3 +7,5 @@ if (interactive() && requireNamespace("httpgd", quietly = TRUE)) {
 
   cat("httpgd 已经启动，请在浏览器访问: http://127.0.0.1:8889/live?token=my_r_plots\n")
 }
+
+options(Ncpus = parallel::detectCores())

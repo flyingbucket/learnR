@@ -1,0 +1,218 @@
+# R 语言默认基础加载包
+
+```{r}
+
+```
+
+R语言在绘画中默认加载了很多基础包，无需手动导入任何包即可直接使用。
+这些包主要分为以下四类，基础数据结构、数据清洗工具、基础统计模型、以及系统、文件相关实用工具。
+
+## 基础数据结构
+### 容器创建
+
+```{r}
+# c()：组合（Combine）元素，创建 R 中最基础的向量（Vector）
+vec <- c(1, 3, 5, 7) 
+
+# list()：创建列表，可以容纳不同类型、不同长度的元素
+my_list <- list(name = "Tom", scores = c(90, 85)) 
+
+# data.frame()：创建数据框，即表格数据，每列代表一个变量，每行代表一条记录
+df <- data.frame(id = 1:2, status = c("Active", "Pending")) 
+
+# matrix()：创建矩阵，数据必须为同一种类型，通过 nrow 和 ncol 指定行列
+mat <- matrix(1:6, nrow = 2, ncol = 3)
+```
+
+### 类型转换
+```{r}
+# is.numeric() / as.numeric()：检查是否为数值型；将其他类型（如字符）转换为数值型
+is.numeric("123"); num_vec <- as.numeric(c("1.2", "3.4")) 
+
+# is.character() / as.character()：检查是否为字符型；将数值等转换为字符文本
+is.character(vec); char_vec <- as.character(c(1, 2, 3)) 
+
+# is.factor() / as.factor()：检查是否为因子（分类变量）；将文本或数字转为带有“水平(Levels)”的分类变量
+as.factor(c("High", "Low", "High")) 
+
+# is.data.frame() / as.data.frame()：检查是否为数据框；将矩阵等结构强制转换为数据框
+df_from_mat <- as.data.frame(mat)
+```
+
+### 元数据与结构查看
+
+```{r}
+# str()：Compactly display the structure，紧凑地展示数据的内部结构、类型及前几个样本
+str(df) 
+
+# summary()：对数据框的每一列或单个向量提供统计摘要（数值型给五数总括，字符/因子给频数）
+summary(df) 
+
+# dim() / nrow() / ncol()：dim返回维数向量(行数, 列数)，nrow和ncol分别单独获取行数和列数
+dim(mat); total_rows <- nrow(df) 
+
+# names() / colnames()：查看或修改列表/数据框的元素名或列名
+colnames(df) <- c("User_ID", "Account_Status")
+```
+
+## 数据清洗与过滤
+### 缺失值检测与处理
+```{r}
+# 准备数据：加载 mice 包并查看 nhanes 数据集（包含不少 NA 缺失值）
+library(mice); data(nhanes)
+
+# is.na()：检测每个位置是否为缺失值，返回同等大小的布尔矩阵；配合 sum() 可统计全表总缺失数
+sum(is.na(nhanes)) # 统计 nhanes 数据集中一共有多少个 NA
+
+# complete.cases()：返回逻辑向量，判断哪些行是完整的（无任何缺失值）；常用于筛选出完美的样本
+perfect_rows <- nhanes[complete.cases(nhanes), ] # 过滤出没有任何 NA 的完整行
+
+# na.omit()：直接自动剔除数据框中所有含有 NA 的行，并附带删除记录的属性
+clean_nhanes <- na.omit(nhanes) # 效果等同于上一行的完备筛选，但一步到位
+```
+### 子集筛选与条件匹配
+```{r}
+# 准备数据：加载 dplyr 包并引入 starwars 数据集
+library(dplyr); data(starwars)
+
+# %in%：判断左侧元素是否包含在右侧集合中，常用于多条件过滤（比写多个 == 更优雅）
+humans_and_droids <- starwars[starwars$species %in% c("Human", "Droid"), ] # 筛选出人类或机器人的行
+
+# which()：将逻辑向量（TRUE/FALSE）转换为具体的行号或位置索引，避免 NA 干扰
+tall_row_indexes <- which(starwars$height > 200) # 找到身高大于200cm的行号（自动忽略height为NA的行）
+
+# subset()：原生 R 中最像 dplyr::filter 的高级筛选函数，可以直接写列名而不用加 $ 符号
+jedi_masters <- subset(starwars, skin_color == "green" & eye_color == "black") # 筛选绿色皮肤黑眼睛的行
+```
+
+## 基础统计方法与模型
+
+### 描述性统计
+
+```{r}
+# 准备演示数据（使用 R 内置的 cars 数据集，包含速度 speed 和刹车距离 dist 两列）
+data(cars)
+
+# mean() / median()：计算向量的均值和中位数；na.rm = TRUE 用于自动忽略缺失值
+avg_speed <- mean(cars$speed); med_dist <- median(cars$dist, na.rm = TRUE)
+
+# sd() / var()：计算样本标准差（Standard Deviation）与方差（Variance），衡量数据的离散程度
+speed_sd <- sd(cars$speed); dist_var <- var(cars$dist)
+
+# quantile()：计算分位数，默认返回 0%, 25%, 50%, 75%, 100% 五数总括
+quantile(cars$dist, probs = c(0.25, 0.75)) # 精确获取第 25 和第 75 百分位数
+
+# cor()：计算两组连续变量之间的相关系数（默认皮尔逊 Pearson 相关系数）
+correlation <- cor(cars$speed, cars$dist) # 计算速度与刹车距离的相关性
+```
+
+### 经典统计检验
+
+```{r}
+# 准备检验数据（使用 R 内置的 sleep 数据集，包含两组药物对睡眠时间的影响）
+data(sleep)
+
+# t.test()：执行 T 检验（单样本、独立双样本或配对样本），默认是不假设方差齐性的 Welch T 检验
+t.test(extra ~ group, data = sleep, paired = TRUE) # 依据 group 分组，对 extra 进行配对样本 T 检验
+
+# chisq.test()：卡方检验，用于检验两个分类变量（Factor）之间的独立性或交叉频数表
+gender_vs_vote <- table(c("M", "M", "F", "F"), c("Yes", "No", "Yes", "Yes"))
+chisq.test(gender_vs_vote) # 检验性别与投票意向是否具有独立性
+
+# aov()：方差分析（ANOVA），用于比较三组及以上连续变量均值的差异，需配合 summary() 查看 ANOVA 表
+anova_model <- aov(extra ~ group, data = sleep); summary(anova_model)
+```
+
+### 经典统计模型
+
+```{r}
+# lm()：构建普通最小二乘法线性回归模型（Linear Model）
+lm_fit <- lm(dist ~ speed, data = cars) # 以 dist 为因变量，speed 为自变量建立一元线性回归
+
+# summary()：对建好的模型对象进行全面诊断，输出残差、回归系数、t 检验、R方及显著性星号
+summary(lm_fit) # 这是 R 语言中最经典的输出界面，包含了回归分析的核心元数据
+
+# glm()：广义线性模型（Generalized Linear Model），通过 family 参数轻松实现 Logistic 回归等
+# 以下代码演示如何构建 Logistic 回归（假设因变量是 0/1 伯努利分布）
+glm_fit <- glm(y ~ x1 + x2, data = my_data, family = binomial)
+
+# predict() / coef()：传入新数据进行模型预测；提取回归系数（Coefficients）
+new_cars <- data.frame(speed = c(15, 22))
+predicted_dist <- predict(lm_fit, newdata = new_cars) # 预测速度为15和22时的刹车距离
+model_coefficients <- coef(lm_fit) # 提取回归系数（截距与斜率）
+```
+
+### 概率分布 
+```{r}
+# d前缀（Density）：概率密度函数。对于连续分布，返回给定 x 处的密度曲线高度值
+density_at_zero <- dnorm(0, mean = 0, sd = 1) # 标准正态分布在 0 处的概率密度值（约 0.398）
+
+# p前缀（Probability）：累积分布函数（CDF）。计算曲线左侧的累积概率面积 P(X <= x)
+prob_less_than_1 <- pnorm(1, mean = 0, sd = 1) # 计算标准正态分布中变量小于 1 的概率（约 84.1%）
+
+# q前缀（Quantile）：分位数函数。p 前缀的逆运算，输入概率，返回对应的分位数点 x
+x_value <- qnorm(0.95, mean = 0, sd = 1) # 获取标准正态分布单侧 95% 置信度对应的 Z 值（约 1.645）
+
+# r前缀（Random）：随机数生成器。用于产生符合特定分布的伪随机数向量
+random_normals <- rnorm(n = 100, mean = 10, sd = 2) # 生成 100 个均值为 10、标准差为 2 的正态分布随机数
+```
+
+## 系统、文件相关实用工具
+
+### 环境与工作目录管理
+
+控制 R 会话（Session）的当前定位，并负责全局变量的清查。
+
+```R
+# getwd() / setwd()：获取当前工作目录路径；切换工作目录到指定路径
+current_dir <- getwd(); setwd("~/project/data_analysis")
+
+# ls()：列出当前全局环境（Global Environment）中已经存在的所有变量对象名称
+all_variables <- ls() # 配合 RStudio 的 Environment 面板看效果更佳
+
+# rm()：从内存中删除指定的变量对象；下行代码是经典的“一键清空环境”组合拳
+rm(list = ls()) # 清空当前环境中所有的变量，释放内存
+
+```
+
+### 原生文件导入与导出
+
+在没有安装 `readr` 或 `data.table` 之前，原生 R 就自带了完备的表格读写能力。
+
+```R
+# read.csv() / read.table()：读取 CSV 或普通文本格式的表格数据，转化为 dataframe
+my_data <- read.csv("data.csv", stringsAsFactors = FALSE) # stringsAsFactors 确保文本不自动变因子
+
+# write.csv() / write.table()：将内存中的 dataframe 导出为本地 CSV 或文本文件
+write.csv(my_data, file = "output_clean.csv", row.names = FALSE) # row.names=FALSE 避免导出无用的行号列
+
+```
+
+### 系统辅助与性能监控
+
+用于获取系统级元数据，或者为你的长循环、大计算任务进行精确计时。
+
+```R
+# Sys.time() / Sys.Date()：获取系统当前的精确时间（带时区）或当前日期
+start_time <- Sys.time(); current_date <- Sys.Date()
+
+# diff() 配合 Sys.time()：计算代码运行耗时（对标 Rust 的 Duration / Instant 计时）
+end_time <- Sys.time(); run_time <- end_time - start_time # 得到代码块的运行总耗时
+
+# sessionInfo()：打印当前 R 的版本、操作系统、系统语言以及所有已加载包的详细版本快照
+sessionInfo() # 提交 Bug 或与同行对齐运行环境时的命令
+
+```
+
+### 全局参数调校
+
+控制 R 会话的一些底层行为，比如规避科学计数法。
+
+```R
+# options()：查看或设置 R 内部的全局行为参数（非常实用）
+options(digits = 4) # 设置控制台打印数值时，最多保留 4 位有效数字
+
+# options(scipen = ...)：控制何时触发科学计数法。数字越大，越倾向于显示完整数字而非 1e+05
+options(scipen = 999) # 彻底关闭科学计数法，强制 R 语言打出所有长数字
+
+```

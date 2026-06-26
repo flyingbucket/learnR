@@ -1,0 +1,160 @@
+# dplyr基本使用方法
+
+dplyr是R语言中数据分析的常用工具，是tidyverse的核心包。
+
+## 数据管道与常用算子
+
+在 R 语言的数据清洗与分析中，**数据管道 (Pipe)** 是提高代码可读性和维护性的核心机制。
+它允许我们将数据操作写成一气呵成 的“流水线”，消灭繁琐的中间变量。
+
+### 管道操作符：`%>%` 与 `|>` 的对比
+
+目前 R 语言中主要存在两种管道符：
+
+* **传统管道 `%>%`**：由 `magrittr` 包提供（被 `tidyverse` 默认导入）。
+* **原生管道 `|>`**：R 4.1.0 版本引入的原生语法，无需加载任何包即可使用，性能略高。
+
+#### 传参机制与占位符
+
+默认情况下，两者都会将管道左侧的输出作为右侧函数的**第一个参数**传入：
+
+```{r}
+library("dplyr")
+# 以下两行代码等价
+df_filtered <- filter(mtcars, mpg > 20)
+df_filtered <- mtcars |> filter(mpg > 20)
+
+```
+
+当需要将数据传给**非第一个参数**（或多个位置）时，两者的占位符机制有所不同：
+
+* **`%>%` 占位符**：使用点号 `.`。
+```r
+# 传给第二个参数
+mtcars %>% lm(hp ~ mpg, data = .)
+
+```
+
+
+* `|>` 占位符：在 R 4.2.0 及以上版本中，使用下划线 `_`。但有严格限制，**必须写明对应的参数名（命名参数）**：
+```r
+# 必须显式写出 data = _
+mtcars |> lm(hp ~ mpg, data = _)
+
+```
+
+
+
+### dplyr 核心算子
+
+dplyr 的设计哲学是用最符合直觉的“动词”来处理数据表：
+
+| **算子** | **功能说明** | **对应 SQL 操作** |
+| --- | --- | --- |
+| **`filter()`** | 过滤行（筛选满足条件的观测值） | `WHERE` |
+| **`select()`** | 选择列（保留或重命名指定变量） | `SELECT` |
+| **`arrange()`** | 排序行（升序或降序排列数据） | `ORDER BY` |
+| **`mutate()`** | 创建或修改列（新增衍生计算指标） | `SELECT expr AS new_col` |
+| **`group_by()`** | 分组（将数据按指定列划分为子集） | `GROUP BY` |
+| **`summarise()`** | 聚合（计算均值、总和等统计指标） | `AVG`, `SUM` 等聚合函数 |
+
+
+`filter`使用案例：筛选出mtcars中hp大于100的行
+```r
+power_cars <- mtcars |> filter(hp > 100)
+power_cars <- filter(mtcars, hp > 100)
+
+```
+
+`select`使用案例：选择mpg、cyl和hp这几列（或排除某些列）
+
+```r
+# 选择指定列
+selected_cols <- mtcars |> select(mpg, cyl, hp)
+selected_cols <- select(mtcars, mpg, cyl, hp)
+
+# 排除指定列（例如排除gear和carb）
+remaining_cols <- mtcars |> select(-gear, -carb)
+
+```
+
+`arrange`使用案例：将数据先按cyl升序排列，如果cyl相同则按mpg降序排列
+
+```r
+sorted_cars <- mtcars |> arrange(cyl, desc(mpg))
+sorted_cars <- arrange(mtcars, cyl, desc(mpg))
+
+```
+
+`mutate`使用案例：新增一列表示“马力与重量的比值”（hp_per_wt），并修改原有的cyl为因子类型
+
+```r
+modified_cars <- mtcars |> mutate(
+  hp_per_wt = hp / wt,
+  cyl = as.factor(cyl)
+)
+modified_cars <- mutate(mtcars, hp_per_wt = hp / wt, cyl = as.factor(cyl))
+
+```
+
+`group_by`使用案例：将数据按照cyl（气缸数）进行分组（通常与summarise配合使用）
+
+```r
+grouped_cars <- mtcars |> group_by(cyl)
+grouped_cars <- group_by(mtcars, cyl)
+
+```
+
+`summarise`使用案例：配合group_by，计算每个cyl分组下的平均马力（mean_hp）和总样本数（count）
+
+```r
+car_summary <- mtcars |> 
+  group_by(cyl) |> 
+  summarise(
+    mean_hp = mean(hp),
+    count = n()
+  )
+
+# 不带管道符的写法（需要嵌套或分步）
+grouped_cars <- group_by(mtcars, cyl)
+car_summary <- summarise(grouped_cars, mean_hp = mean(hp), count = n())
+```
+
+```
+
+```
+### 实战案例：链式调用综合分析
+
+下面我们使用 R 语言内置的经典数据集 `mtcars`（含有 32 辆汽车的各项指标）来演示这一套流水线操作。
+
+#### 业务场景分析
+
+我们希望筛选出**马力（`hp`）大于 100** 的车型，
+然后计算不同气缸数（`cyl`）车型的平均每加仑英里数（`mpg`)，并创建一个“马力与重量之比”的新指标，最后按平均每加仑英里数进行降序排列。
+
+```{r}
+#| message: false
+#| warning: false
+library(dplyr)
+
+mtcars_analysis <- mtcars |> 
+  filter(hp > 100) |> 
+  select(mpg, cyl, hp, wt) |> 
+  mutate(hp_per_wt = round(hp / wt, 2)) |> 
+  group_by(cyl) |> 
+  summarise(
+    avg_mpg = round(mean(mpg), 1),
+    avg_hp_wt = round(mean(hp_per_wt), 1),
+    car_count = n()
+  ) |> 
+  arrange(desc(avg_mpg))
+
+print(mtcars_analysis)
+
+```
+
+#### 代码执行细节拆解：
+
+* 在 `filter()` 中，我们使用了 **非标准评估 (NSE)** 机制，直接写列名 `hp` 而不需要加引号。
+* 在 `summarise()` 中，`n()` 是一个非常实用的辅助函数，用来统计每个分组中的观测数（行数）。
+* 通过 `group_by()` 之后，后续的 `summarise()` 算子会自动在每个组内独立进行计算，并在计算完成后默认解除一级分组。

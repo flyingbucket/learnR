@@ -1,0 +1,481 @@
+# ggplot2 绘图基础
+
+## ggplot2基本绘图逻辑
+### ggplot2 核心绘图逻辑与图层概念
+
+`ggplot2` 遵循“数据 -> 映射 -> 几何对象 -> 调整”的递进逻辑，
+图表是由不同的独立组件通过 `+` 号层层叠加而成的。
+
+#### 核心的七个图层要素
+- **Data (数据)**: 必须是数据框（`data.frame` 或 `tibble`），是可视化的原材料。
+- **Mapping / Aesthetics (美学映射 `aes()`)**: 
+  建立**数据变量**与**视觉通道**（如X/Y轴、颜色 `color`、大小 `size`、形状 `shape`）之间的关联。
+- **Geometries (几何对象 `geom_*`)**: 
+  决定数据的具体展现形态（如散点 `geom_point`、条形 `geom_bar`、箱线 `geom_boxplot`）。
+- **Statistical Transformations (统计变换 `stat_*`)**: 
+  对原数据进行计算（如直方图自动计算频数、回归线自动计算拟合值）。
+- **Scales (标度控制 `scale_*`)**: 
+  控制映射的具体表现形式（如自定义某种颜色映射、将坐标轴改为对数轴 `scale_y_log10()`）。
+- **Facets (分面 `facet_*`)**: 
+  实现数据分组，在一张大图里并排画出多个子图（如 `facet_wrap()`）。
+- **Themes (主题 `theme_*`)**: 控制非数据组件的视觉外观（如背景色、网格线、字体大小）。
+
+#### ggplot2 万能通用代码模板
+
+任何复杂的 `ggplot2` 图表，万变不离其宗，都可以套用以下标准模板进行拆解和组装：
+
+```R
+ggplot(data = <DATA>, mapping = aes(<MAPPINGS>)) + 
+  <GEOM_FUNCTION>(
+     mapping = aes(<LOCAL_MAPPINGS>),
+     stat = <STAT>, 
+     position = <POSITION>
+  ) +
+  <SCALE_FUNCTIONS>() +
+  <FACET_FUNCTION>() +
+  <THEME_FUNCTION>() +
+  labs(title = "标题", x = "X轴标签", y = "Y轴标签")
+```
+## 常见图形在ggplot2中的绘制方法
+```{r}
+
+```
+
+
+```{r}
+library(ggplot2)
+library(ggcorrplot)
+```
+
+### 相关性与回归分析
+
+#### 基础散点图 + 线性回归拟合线 (`geom_point` + `geom_smooth`)
+
+* **分析目的**：探索汽车“车重 (`wt`)”与“每加仑行驶英里数 (`mpg`, 油耗指标)”之间是否存在线性相关，并展示置信区间。
+
+```{r}
+ggplot(data = mtcars, aes(x = wt, y = mpg)) +
+  # 1. 绘制散点，设置点的大小、透明度和颜色
+  geom_point(color = "#34495e", size = 3, alpha = 0.8) +
+  
+  # 2. 叠加回归直线
+  # method = "lm" 表示线性模型 (Linear Model)
+  # se = TRUE 表示显示 95% 的置信区间阴影带
+  geom_smooth(method = "lm", color = "#e74c3c", fill = "#f1c40f", se = TRUE) +
+  
+  # 3. 细节美化
+  theme_minimal() +
+  labs(
+    title = "汽车车重与油耗的相关性分析",
+    x = "车重 (Weight, 1000 lbs)",
+    y = "每加仑英里数 (MPG)"
+  )
+
+```
+#### 散点图 + 分组局部加权回归拟合 (`geom_smooth(method = "loess")`)
+
+* **分析目的**：展示如何利用 `aes()` 的**局部映射**与**全局映射**。按鸢尾花物种 (`Species`) 分组画散点，但拟合出一条不分分组的、非线性的平滑整体趋势线。
+
+```{r}
+# 全局只映射 X 和 Y
+ggplot(data = iris, aes(x = Sepal.Length, y = Sepal.Width)) +
+  
+  # 1. 局部映射：只有散点按照物种 (Species) 区分颜色
+  geom_point(aes(color = Species), size = 2.5, alpha = 0.8) +
+  
+  # 2. 整体拟合：method = "loess" 是局部加权回归（擅长捕捉非线性弯曲趋势）
+  # 此时它会忽略 Species 分组，直接计算全样本的整体趋势
+  geom_smooth(method = "loess", color = "black", linetype = "dashed", se = FALSE) +
+  
+  theme_light() +
+  scale_color_brewer(palette = "Set1") + # 换一个好看的经典配色盘
+  labs(title = "鸢尾花花萼长宽的非线性趋势拟合", x = "花萼长度", y = "花萼宽度")
+
+```
+
+#### 高维展示：多变量气泡图 (Bubble Plot)
+
+* **分析目的**：在二维画布上，同时展示 4 个指标的相关性（X轴=马力，Y轴=油耗，气泡大小=车重，气泡颜色=气缸数）。
+
+```{r}
+ggplot(data = mtcars, aes(x = hp, y = mpg)) +
+  # 将第 3 个连续变量 wt 映射给 size，第 4 个分类变量 cyl 映射给 color
+  geom_point(aes(size = wt, color = factor(cyl)), alpha = 0.7) +
+  
+  # 控制气泡映射的大小范围，避免气泡太小看不清或太大叠在一起
+  scale_size_continuous(range = c(2, 10)) + 
+  
+  theme_bw() +
+  labs(
+    title = "多变量相关性气泡图",
+    x = "马力 (Horsepower)",
+    y = "每加仑英里数 (MPG)",
+    size = "车重 (wt)",
+    color = "气缸数 (cyl)"
+  )
+
+```
+
+#### 矩阵相关性热图 (`ggcorrplot`)
+
+* **分析目的**：当你有几十个连续变量时，散点图根本画不下。此时需要先用 R 原生的 `cor()` 计算相关系数矩阵，再用热图一眼看清所有变量两两之间的相关性。
+
+```{r}
+# 1. 提取 mtcars 中前 6 个连续变量并计算皮尔逊相关系数矩阵
+corr_matrix <- cor(mtcars[, 1:6])
+
+# 2. 使用 ggcorrplot 快速绘制
+ggcorrplot(
+  corr_matrix, 
+  method = "tile",          # 热图方块类型，也可以换成 "circle" 圆片
+  type = "lower",           # 只显示下半部分矩阵（因为对称），界面更清爽
+  lab = TRUE,               # 在方块里直接显示相关系数的数值
+  lab_size = 4,             # 数值文字的大小
+  colors = c("#6D9EC1", "white", "#E46726"), # 极端负相关、不相关、极端正相关的颜色渐变
+  title = "汽车核心指标相关性矩阵热图",
+  ggtheme = theme_minimal()
+)
+
+# 使用纯ggplot2
+library(tidyr)   # 用于数据转换 pivot_longer
+library(tibble)  # 用于处理矩阵的行名
+
+corr_df <- as.data.frame(corr_matrix) %>% 
+  rownames_to_column(var = "Var1") %>% 
+  pivot_longer(cols = -Var1, names_to = "Var2", values_to = "Correlation")
+
+# 使用 ggplot2 绘制热力图
+ggplot(corr_df, aes(x = Var1, y = Var2, fill = Correlation)) +
+  # 绘制方块
+  geom_tile(color = "white", lwd = 0.5, linetype = 1) + 
+  
+  # 在方块内添加文本标签（保留2位小数）
+  geom_text(aes(label = sprintf("%.2f", Correlation)), color = "black", size = 4) +
+  
+  # 设置渐变颜色（极端负相关、不相关、极端正相关）
+  scale_fill_gradient2(
+    low = "#6D9EC1", 
+    mid = "white", 
+    high = "#E46726", 
+    midpoint = 0, 
+    limit = c(-1, 1), 
+    space = "Lab", 
+    name = "相关系数"
+  ) +
+  
+  # 基础美化主题
+  theme_minimal() + 
+  labs(title = "汽车核心指标相关性矩阵热图", x = NULL, y = NULL) +
+  
+  # 让坐标轴比例 1:1，确保方块是正方形
+  coord_fixed()
+```
+
+### 数据分布特征分析
+```{r}
+library(ggplot2)
+library(ggridges)
+
+```
+#### 单变量分布：直方图 + 密度曲线结合图 (`geom_histogram` + `geom_density`)
+
+* **分析目的**：观察单个连续变量（如汽车马力 `hp`）的频数与概率密度分布，判断数据是否偏态。
+* **核心技巧**：为了让密度曲线和直方图画在同一个 Y 轴刻度上，直方图的 Y 轴必须映射为特殊的内部统计变量 `after_stat(density)`。
+
+```{r}
+ggplot(data = mtcars, aes(x = hp)) +
+  # 1. 绘制直方图：y = after_stat(density) 强制将 Y 轴从"频数"转为"密度"
+  geom_histogram(aes(y = after_stat(density)), bins = 15, 
+                 fill = "#3498db", color = "white", alpha = 0.7) +
+  # 2. 叠加平滑的密度曲线
+  geom_density(color = "#e74c3c", linewidth = 1.2) +
+  
+  # 3. 细节美化
+  theme_minimal() +
+  labs(
+    title = "汽车马力数据分布图 (直方图 + 密度线)",
+    x = "马力 (Horsepower)",
+    y = "密度 (Density)"
+  )
+
+```
+
+#### 小提琴图叠加箱线图 (`geom_violin` + `geom_boxplot`)
+
+* **分析目的**：对比不同气缸数 (`cyl`) 的汽车在油耗 (`mpg`) 上的分布。小提琴图看整体数据“胖瘦”（密度），箱线图看精确的“分位数和异常值”，两者结合天下无敌。
+
+```{r}
+ggplot(data = mtcars, aes(x = factor(cyl), y = mpg, fill = factor(cyl))) +
+  # 1. 绘制小提琴图：trim = FALSE 保留尾部极端值延伸
+  geom_violin(trim = FALSE, alpha = 0.5, color = "grey80") +
+  
+  # 2. 叠加箱线图：width 控制宽度使其缩在小提琴内部，color 控制线条颜色
+  geom_boxplot(width = 0.15, fill = "white", color = "#2c3e50", 
+               outlier.color = "red", outlier.size = 2) +
+  
+  # 3. 细节美化
+  scale_fill_brewer(palette = "Pastel1") +
+  theme_classic() +
+  theme(legend.position = "none") + # 已经有 X 轴标签了，隐藏冗余图例
+  labs(
+    title = "不同气缸数汽车的油耗分布对比",
+    x = "气缸数 (Cylinders)",
+    y = "每加仑英里数 (MPG)"
+  )
+
+```
+
+#### 山脊图 / 脊线图 (`geom_density_ridges`)
+
+* **分析目的**：展示多个不同月份 (`Month`) 里，温度 (`Temp`) 分布波动的层层演变过程。
+* **应用场景**：当分类变量的级别非常多（比如有 12 个月或几十个省份），用普通的箱线图会排得太满，而山脊图可以像山脉一样纵向交叠，极为优雅。
+
+```{r}
+# 使用 R 内置的空气质量数据集 airquality
+ggplot(data = airquality, aes(x = Temp, y = factor(Month), fill = factor(Month))) +
+  # 1. 绘制山脊图：scale 控制山峰之间的交叠程度，数值越大交叠越多
+  geom_density_ridges(scale = 1.5, rel_min_height = 0.01, alpha = 0.8, color = "white") +
+  
+  # 2. 细节美化
+  scale_fill_viridis_d(option = "plasma") + # 使用高对比度的 viridis 颜色盘
+  theme_ridges() + # 使用 ggridges 专用的清爽主题
+  theme(legend.position = "none") +
+  labs(
+    title = "各月份气温分布演变山脊图",
+    x = "华氏温度 (Temperature)",
+    y = "月份 (Month)"
+  )
+
+```
+
+### 结构、成分与局部占比
+
+绘制树状图需要用到非常强大的扩展包 `treemapify`，它能完美融入 `ggplot2` 的图层语法中。
+
+```{r}
+library(ggplot2)
+library(treemapify)
+
+```
+
+#### 堆叠条形图 (`position = "stack"`)
+
+* **分析目的**：观察不同气缸数 (`cyl`) 的汽车中，自动挡（`am = 0`）和手动挡（`am = 1`）汽车的**绝对数量**构成。
+* **核心技巧**：`geom_bar()` 默认的 `position` 就是 `"stack"`（堆叠）。
+
+```{r}
+# 准备数据：为了图例好看，先将变量转换为有意义的字符因子
+mtcars_clean <- mtcars
+mtcars_clean$Transmission <- ifelse(mtcars_clean$am == 0, "自动挡 (Automatic)", "手动挡 (Manual)")
+
+ggplot(data = mtcars_clean, aes(x = factor(cyl), fill = Transmission)) +
+  # 1. 绘制堆叠条形图：position = "stack" 会把数量往上累加
+  geom_bar(position = "stack", width = 0.6, alpha = 0.9) +
+  
+  # 2. 美化与调色
+  scale_fill_manual(values = c("#34495e", "#1abc9c")) +
+  theme_minimal() +
+  labs(
+    title = "不同气缸汽车的变速箱类型绝对数量堆叠图",
+    x = "气缸数 (Cylinders)",
+    y = "汽车款数 (Count)",
+    fill = "变速箱类型"
+  )
+
+# 手动挡、自动挡分开两个柱子
+ggplot(mtcars_clean, aes(x = factor(cyl), fill = Transmission)) +
+  geom_bar(position = "dodge")
+
+```
+#### 百分比堆叠条形图 (`position = "fill"`)
+
+* **分析目的**：有时候我们不关心绝对数量（因为某些组别样本量极大，会压倒其他组），只关心“份额占比”**。比如：对比不同气缸数下，自动挡和手动挡的**百分比结构。
+
+```{r}
+ggplot(data = mtcars_clean, aes(x = factor(cyl), fill = Transmission)) +
+  # 1. 绘制百分比堆叠图：position = "fill" 会自动将每根柱子拉伸到 100% (即 1.0)
+  geom_bar(position = "fill", width = 0.6, alpha = 0.9) +
+  
+  # 2. 将 Y 轴的刻度标签格式化为百分比样式（0.25 -> 25%）
+  scale_y_continuous(labels = scales::percent) +
+  
+  # 3. 美化
+  scale_fill_manual(values = c("#e74c3c", "#3498db")) +
+  theme_minimal() +
+  labs(
+    title = "不同气缸汽车的变速箱类型结构百分比图",
+    x = "气缸数 (Cylinders)",
+    y = "所占百分比 (Percentage)",
+    fill = "变速箱类型"
+  )
+
+```
+#### 树状矩形图 (`geom_treemap`)
+
+* **分析目的**：优雅地展示一个由多层级、多分类构成的大整体。
+* **应用场景**：我们要展示 G20 国家的经济体量。如果用饼图，20 个扇区会挤成一团，标签根本错不开。而树状图用矩形填满画布，**面积代表 GDP 大小，颜色代表各大洲**，高下立判。
+
+```{r}
+# 建立一个模拟的全球部分国家 GDP 数据集（做笔记直接用）
+gdp_data <- data.frame(
+  country = c("美国", "中国", "日本", "德国", "英国", "法国", "印度", "巴西", "加拿大", "意大利"),
+  continent = c("北美洲", "亚洲", "亚洲", "欧洲", "欧洲", "欧洲", "亚洲", "南美洲", "北美洲", "欧洲"),
+  gdp = c(23, 17, 5, 4.2, 3.2, 2.9, 3.1, 1.6, 2.0, 2.1)
+)
+
+ggplot(data = gdp_data, aes(area = gdp, fill = continent, label = country)) +
+  # 1. 绘制树状图底色方块：area 映射方块大小
+  geom_treemap(color = "white", linewidth = 2) +
+  
+  # 2. 极其硬核的图内文本自适应居中图层：自动根据方块大小调整文字，大方块字大，小方块字小
+  geom_treemap_text(fontface = "bold", color = "white", place = "center", grow = FALSE) +
+  
+  # 3. 美化
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "全球核心国家 GDP 份额及大洲分布树状图",
+    subtitle = "方块面积代表 GDP 相对大小",
+    fill = "所属大洲"
+  )
+
+```
+
+### 时间序列与趋势演变
+
+时序分析的本质是捕捉**趋势、季节性、周期性或突变点**。
+
+#### 折线图与面积图 (`geom_line` / `geom_area`)
+
+* **分析目的**：观察美国失业人数（`unemploy`）随时间的波动趋势。
+* **核心技巧**：`geom_area`（面积图）通过填充线条下方的空间，能比折线图带来更强的“量感”和冲击力。
+
+```{r}
+library(ggplot2)
+
+# 使用 ggplot2 自带的经济学数据集 economics
+ggplot(data = economics, aes(x = date, y = unemploy)) +
+  # 1. 绘制面积图：填充半透明淡蓝色
+  geom_area(fill = "#3498db", alpha = 0.3) +
+  
+  # 2. 叠加折线图：强化边界趋势
+  geom_line(color = "#2980b9", linewidth = 1) +
+  theme_minimal() +
+  labs(
+    title = "美国失业人数历史趋势演变图",
+    x = "年份 (Date)", y = "失业人数 (单位: 千人)"
+  )
+
+```
+
+### 多维降维与复杂轮廓
+
+当数据的变量（列）达到 5 个、10 个甚至几十个时，散点图的 $X, Y$ 轴就完全不够用了。这正是该主题需要解决的痛点。
+
+#### 平行坐标图
+
+* **分析目的**：鸢尾花数据集有 4 个连续变量。如果想在一张图里看出 3 种鸢尾花（`Species`）在所有变量上的特征差异，该怎么办？
+* **视觉特征**：把每个变量横向排成独立的纵轴，每一个样本（每一行数据）变成一条横跨所有纵轴的折线。
+  **如果某种分类的折线走势高度一致，说明它们在多维空间里天然聚成了一类！**
+
+```{r}
+# 1. 加载 lattice 包（通常 R 自带，无需安装）
+library(lattice)
+
+# 2. 准备数据：lattice 的 parallelplot 默认喜欢数值型矩阵或数据框
+# 我们使用 iris 的前 4 列（Sepal.Length, Sepal.Width, Petal.Length, Petal.Width）
+# 并通过 groups 参数传入第 5 列（Species）进行颜色分组
+
+parallelplot(
+  ~ iris[1:4],                # 右侧公式指定参与高维展示的连续变量
+  data = iris,                # 指定数据集
+  groups = Species,           # 核心：根据花品种驱动折线颜色
+  horizontal.axis = FALSE,    # 极其重要！设置为 FALSE 表示让变量轴纵向平行（对标常规习惯）
+  
+  # 美化控制
+  alpha = 0.4,                # 设置线条透明度，防止线条太多互相遮挡
+  lty = 1,                    # 实线 (1 = solid)
+  lwd = 1.5,                  # 线条粗细
+  col = c("#e67e22", "#9b59b6", "#16a085"), # 自定义三中花的颜色
+  
+  # 添加图例
+  key = list(
+    space = "bottom",         # 图例放在底部
+    columns = 3,              # 图例分 3 列显示
+    text = list(levels(iris$Species)),
+    lines = list(col = c("#e67e22", "#9b59b6", "#16a085"), lwd = 3)
+  ),
+  main = "使用 lattice 绘制的鸢尾花平行坐标图"
+)
+```
+
+### PCA降为可视化
+
+#### biplot实现:
+```{r}
+# 第一步：做原生 PCA 降维（记得 scale. = TRUE 进行标准化）
+pca_res <- prcomp(USArrests, scale. = TRUE)
+
+# 第二步：使用内置 biplot 函数一键绘制
+biplot(
+  pca_res, 
+  cex = c(0.7, 0.9),           # 分别设置【样本标签】和【变量箭头标签】的大小
+  col = c("#2c3e50", "#e74c3c"), # 分别设置【样本】和【箭头与变量名】的颜色
+  main = "使用 R 内置 biplot 绘制的犯罪率 PCA 双标图"
+)
+
+```
+
+* **原理解析**：
+内置的 `biplot()` 默认就会把行名（各州名字）作为点标签打印出来，并自动计算出载荷（Loadings）画出红色的箭头，非常适合快速探索数据。
+
+
+#### ggplot2实现:
+```{r}
+library(ggplot2)
+
+# 1. 运行 PCA
+pca_res <- prcomp(USArrests, scale. = TRUE)
+
+# 2. 提取【样本得分 (Scores)】— 用于画点/标签
+# x 矩阵存储了所有样本在 PC1, PC2 等主成分上的投影坐标
+scores_data <- as.data.frame(pca_res$x)
+scores_data$State <- rownames(scores_data) # 把州名存为单独一列
+
+# 3. 提取【变量载荷 (Loadings)】— 用于画箭头
+# rotation 矩阵存储了原始变量对主成分的贡献方向（即向量终点坐标）
+loadings_data <- as.data.frame(pca_res$rotation)
+loadings_data$Variable <- rownames(loadings_data)
+
+# 4. 由于载荷（箭头）的数值通常较小，为了不让它们缩在画布中心，
+# 统计学上常用一个放大倍数（Scale Factor）让箭头和样本点能在同一尺度展现
+scale_factor <- 3
+
+# 5. 使用原生 ggplot2 组合图层叠加绘制
+ggplot() +
+  # 图层一：绘制样本（用文本标签代替圆点）
+  geom_text(data = scores_data, aes(x = PC1, y = PC2, label = State), 
+            color = "#2c3e50", alpha = 0.8, size = 3.5) +
+  
+  # 图层二：绘制原始变量的载荷箭头（从原点 0,0 出发）
+  geom_segment(data = loadings_data, 
+               aes(x = 0, y = 0, xend = PC1 * scale_factor, yend = PC2 * scale_factor), 
+               arrow = arrow(length = unit(0.2, "cm")), color = "#e74c3c", linewidth = 0.8) +
+  
+  # 图层三：给箭头末端加上变量名标签
+  geom_text(data = loadings_data, 
+            aes(x = PC1 * scale_factor * 1.1, y = PC2 * scale_factor * 1.1, label = Variable), 
+            color = "#c0392b", fontface = "bold", size = 4) +
+  
+  # 美化：添加十字交叉的原点辅助线
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray70") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray70") +
+  
+  theme_minimal() +
+  labs(
+    title = "使用原生 ggplot2 手动组装的 PCA 双标图 (Biplot)",
+    x = paste0("PC1 (", round(summary(pca_res)$importance[2,1]*100, 1), "%)"),
+    y = paste0("PC2 (", round(summary(pca_res)$importance[2,2]*100, 1), "%)")
+  )
+```
+
+
